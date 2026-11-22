@@ -63,8 +63,8 @@ Turn off **Simplify Output** to get the raw OpenAI-style response.
 
 ## Limitations (read this)
 
-- **No tool calling through the API yet.** In an **AI Agent**, connected tools will not be invoked: the model answers in plain text and may even describe a tool result it never got. Agents that depend on tools will not work. Chains, plain chat and agents without tools do work.
-- **Text only.** The API accepts `system`, `user` and `assistant` messages with string content. Images and files are dropped. This package flattens text content to plain strings and converts any tool messages to user text, so requests do not fail with HTTP 400.
+- **Tool calling (AI Agent with tools) works** on `auto` and tool-capable models: `qwen3:4b`, `nemotron-3-nano:4b`, `qwen2.5-coder:7b`, `qwen3-coder:30b` and other qwen3 / qwen2.5-coder / devstral / llama3.1+ builds. Other models answer a tool request with an error that names the ones that work. The chat model asks for one tool call per turn (the agent loops for the next).
+- **Text only.** Images and files are dropped; text content is sent as plain strings.
 - **Variable speed and quality.** Models are open-weight (mostly 0.5B to 30B) and run on community nodes. Answers can take from seconds to a minute or more (auction plus queue), and quality varies by node and model. A listed model may have no live node at a given moment (`no live node serves model ...`) and busy periods can return `Network is busy. Run a node or wait.` Use `auto` for the best chance of an answer.
 - **Limits:** up to 200 messages and 200,000 characters per request, `max_tokens` up to 8192. Context windows are not published per model, so keep prompts modest.
 - `response_format` (JSON mode) is only a routing hint on c0mpute and is not sent by these nodes.

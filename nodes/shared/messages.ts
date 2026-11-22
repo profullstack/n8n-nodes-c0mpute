@@ -1,17 +1,32 @@
 import type { Message, MessageContent } from '@n8n/ai-node-sdk';
 
-/** The only message shape the c0mpute API accepts. */
+/** An OpenAI tool call, as the c0mpute API takes and returns it. */
+export interface C0mputeToolCall {
+	id: string;
+	type: 'function';
+	function: { name: string; arguments: string };
+}
+
+/** A message as the c0mpute API takes it (OpenAI Chat Completions shape). */
 export interface C0mputeMessage {
-	role: 'system' | 'user' | 'assistant';
-	content: string;
+	role: 'system' | 'user' | 'assistant' | 'tool';
+	content: string | null;
+	tool_calls?: C0mputeToolCall[];
+	tool_call_id?: string;
+}
+
+/** An OpenAI function tool definition. */
+export interface C0mputeToolDef {
+	type: 'function';
+	function: { name: string; description?: string; parameters: Record<string, unknown> };
 }
 
 export const C0MPUTE_MAX_TOKENS = 8192;
 
 /**
  * Flatten OpenAI style content (a string, or an array of content parts) into a
- * plain string. The c0mpute API rejects array content with HTTP 400, even when
- * every part is text, so text parts are joined and non-text parts are dropped.
+ * plain string: text parts are joined and non-text parts are dropped (the API
+ * is text only).
  */
 export function flattenContent(content: unknown): string {
 	if (content === null || content === undefined) return '';
@@ -62,25 +77,52 @@ function partToText(part: MessageContent): string {
 }
 
 /**
- * Convert n8n AI SDK messages into what the c0mpute API accepts:
- * role system|user|assistant and string content only.
+ * Convert n8n AI SDK messages into OpenAI Chat Completions messages for c0mpute.
  *
  * - Text parts are joined with newlines.
- * - Tool messages (which the API answers with HTTP 400) become user messages
- *   carrying the tool result as text, so a conversation never breaks.
+ * - Assistant tool-call parts become `tool_calls`; each tool-result part
+ *   becomes a `tool` message with its `tool_call_id` (c0mpute supports tool
+ *   calling on `auto` and tool-capable models).
  * - Messages that end up empty are dropped.
  */
 export function toC0mputeMessages(messages: Message[]): C0mputeMessage[] {
 	const out: C0mputeMessage[] = [];
+	let n = 0;
 	for (const message of messages) {
-		const content = (Array.isArray(message.content) ? message.content : [])
+		const parts = Array.isArray(message.content) ? message.content : [];
+		if (message.role === 'tool') {
+			for (const part of parts) {
+				if (part.type !== 'tool-result') continue;
+				const text = stringifyResult(part.result);
+				out.push({ role: 'tool', tool_call_id: part.toolCallId, content: part.isError ? `error: ${text}` : text });
+			}
+			continue;
+		}
+		if (message.role === 'assistant') {
+			const content = parts
+				.filter((p) => p.type === 'text')
+				.map(partToText)
+				.filter((s) => s !== '')
+				.join('\n');
+			const toolCalls: C0mputeToolCall[] = [];
+			for (const part of parts) {
+				if (part.type !== 'tool-call') continue;
+				toolCalls.push({
+					id: part.toolCallId || `call_n8n_${++n}`,
+					type: 'function',
+					function: { name: part.toolName, arguments: part.input || '{}' },
+				});
+			}
+			if (toolCalls.length) out.push({ role: 'assistant', content: content || null, tool_calls: toolCalls });
+			else if (content.trim() !== '') out.push({ role: 'assistant', content });
+			continue;
+		}
+		const content = parts
 			.map(partToText)
 			.filter((s) => s !== '')
 			.join('\n');
 		if (content.trim() === '') continue;
-		const role: C0mputeMessage['role'] =
-			message.role === 'system' || message.role === 'assistant' ? message.role : 'user';
-		out.push({ role, content });
+		out.push({ role: message.role === 'system' ? 'system' : 'user', content });
 	}
 	return out;
 }
@@ -96,11 +138,18 @@ export function buildChatBody(params: {
 	stream?: boolean;
 	temperature?: number;
 	maxTokens?: number;
+	tools?: C0mputeToolDef[];
 }): Record<string, unknown> {
 	const body: Record<string, unknown> = {
 		model: params.model || 'auto',
 		messages: params.messages,
 	};
+	if (params.tools?.length) {
+		body.tools = params.tools;
+		// n8n's LangChain adapter streams every tool call at index 0, so ask for
+		// one call per turn; the agent loops for the next one.
+		body.parallel_tool_calls = false;
+	}
 	if (params.stream) body.stream = true;
 	if (typeof params.temperature === 'number' && !Number.isNaN(params.temperature)) {
 		body.temperature = clamp(params.temperature, 0, 2);

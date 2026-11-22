@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-c0mpute",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "n8n community nodes for c0mpute: a chat model for AI Agent and LLM chain workflows plus a chat completion action, on open-weight models from the c0mpute peer-to-peer network",
 	"license": "MIT",
 	"homepage": "https://github.com/profullstack/n8n-nodes-c0mpute#readme",

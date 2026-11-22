@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- `c0mpute Chat Model` supports tool calling: tools connected to an AI Agent are sent as OpenAI `tools`, and the model's tool calls (also when streaming) come back to the agent. Tool results go back as `tool` messages. Needs `auto` or a tool-capable model (qwen3:4b, nemotron-3-nano:4b, qwen2.5-coder:7b, ...); see https://c0mpute.com/docs#api.
+
 ## 0.1.0
 
 - `c0mpute API` credential (API key, overridable base URL, test request against `GET /v1/models`).
