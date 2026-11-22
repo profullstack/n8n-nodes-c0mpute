@@ -31,7 +31,7 @@ export class LmChatC0mpute implements INodeType {
 		version: [1],
 		subtitle: '={{$parameter["model"]}}',
 		description:
-			'Open-weight models on the c0mpute peer-to-peer network. Works with chains and plain chat; tool calling is not supported yet.',
+			'Open-weight models on the c0mpute peer-to-peer network, for AI Agents (with tools), chains and plain chat.',
 		defaults: {
 			name: 'c0mpute Chat Model',
 		},
@@ -57,7 +57,7 @@ export class LmChatC0mpute implements INodeType {
 		properties: [
 			{
 				displayName:
-					'The c0mpute API does not support tool calling yet. In an AI Agent, connected tools will not be invoked. Use a Basic LLM Chain or an agent without tools.',
+					'For an AI Agent with tools, pick auto or a tool-capable model (qwen3:4b, nemotron-3-nano:4b, qwen2.5-coder:7b, qwen3-coder:30b). Other models answer tool requests with an error.',
 				name: 'toolsNotice',
 				type: 'notice',
 				default: '',

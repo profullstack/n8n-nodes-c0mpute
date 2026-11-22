@@ -60,14 +60,30 @@ describe('toC0mputeMessages', () => {
 		for (const m of out) expect(typeof m.content).toBe('string');
 	});
 
-	it('turns tool messages into user text instead of a role the API rejects', () => {
+	it('maps assistant tool calls and tool results to OpenAI tool messages', () => {
 		const out = toC0mputeMessages([
 			{
+				role: 'assistant',
+				content: [{ type: 'tool-call', toolCallId: 'call_1', toolName: 'weather', input: '{"city":"Paris"}' }],
+			},
+			{
 				role: 'tool',
-				content: [{ type: 'tool-result', toolCallId: '1', result: { temp: 20 } }],
+				content: [{ type: 'tool-result', toolCallId: 'call_1', result: { temp: 20 } }],
+			},
+			{
+				role: 'tool',
+				content: [{ type: 'tool-result', toolCallId: 'call_2', result: 'boom', isError: true }],
 			},
 		]);
-		expect(out).toEqual([{ role: 'user', content: '[tool result: {"temp":20}]' }]);
+		expect(out).toEqual([
+			{
+				role: 'assistant',
+				content: null,
+				tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'weather', arguments: '{"city":"Paris"}' } }],
+			},
+			{ role: 'tool', tool_call_id: 'call_1', content: '{"temp":20}' },
+			{ role: 'tool', tool_call_id: 'call_2', content: 'error: boom' },
+		]);
 	});
 
 	it('drops reasoning, files and empty messages', () => {

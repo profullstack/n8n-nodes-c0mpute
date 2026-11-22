@@ -82,14 +82,53 @@ describe('C0mputeChatModel.generate', () => {
 		expect(result.usage).toEqual({ promptTokens: 3, completionTokens: 2, totalTokens: 5 });
 	});
 
-	it('never sends bound tools upstream', async () => {
-		const { model, calls } = makeModel();
+	it('sends bound tools and maps tool_calls back to tool-call content', async () => {
+		const { model, calls } = makeModel({
+			httpRequest: async (_m, url, body) => {
+				calls.push({ url: String(url), body: body as Record<string, unknown> });
+				return {
+					body: {
+						id: 'chatcmpl-2',
+						model: 'qwen3:4b',
+						choices: [
+							{
+								message: {
+									role: 'assistant',
+									content: null,
+									tool_calls: [{ id: 'call_9', type: 'function', function: { name: 'weather', arguments: '{"city":"Paris"}' } }],
+								},
+								finish_reason: 'tool_calls',
+							},
+						],
+					},
+				};
+			},
+		});
 		const withTools = model.withTools([
-			{ type: 'function', name: 'weather', description: 'x', inputSchema: {} } as never,
+			{
+				type: 'function',
+				name: 'weather',
+				description: 'Current weather',
+				inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+			},
 		]);
-		await withTools.generate([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }]);
+		const result = await withTools.generate([{ role: 'user', content: [{ type: 'text', text: 'weather?' }] }]);
+		const tools = calls[0].body.tools as Array<{ type: string; function: { name: string; parameters: { properties: object } } }>;
+		expect(tools[0].type).toBe('function');
+		expect(tools[0].function.name).toBe('weather');
+		expect(tools[0].function.parameters.properties).toHaveProperty('city');
+		expect(calls[0].body.parallel_tool_calls).toBe(false);
+		expect(result.finishReason).toBe('tool-calls');
+		expect(result.message.content).toEqual([
+			{ type: 'tool-call', toolCallId: 'call_9', toolName: 'weather', input: '{"city":"Paris"}' },
+		]);
+	});
+
+	it('sends no tool fields when no tools are bound', async () => {
+		const { model, calls } = makeModel();
+		await model.generate([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }]);
 		expect(calls[0].body.tools).toBeUndefined();
-		expect(calls[0].body.tool_choice).toBeUndefined();
+		expect(calls[0].body.parallel_tool_calls).toBeUndefined();
 	});
 
 	it('throws when there is no text to send', async () => {
@@ -114,6 +153,35 @@ describe('C0mputeChatModel.stream', () => {
 			.join('');
 		expect(text).toBe('Hello');
 		expect(chunks[chunks.length - 1]).toEqual({ type: 'finish', finishReason: 'stop', usage: undefined });
+	});
+
+	it('assembles streamed tool_calls deltas into one tool-call-delta per call', async () => {
+		const { model } = makeModel({
+			openStream: async () => ({
+				body: sse([
+					': c0mpute tools',
+					'',
+					'data: {"id":"c2","choices":[{"delta":{"role":"assistant","content":null}}]}',
+					'',
+					'data: {"id":"c2","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_5","type":"function","function":{"name":"weather","arguments":""}}]}}]}',
+					'',
+					'data: {"id":"c2","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"city\\":"}}]}}]}',
+					'',
+					'data: {"id":"c2","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"Paris\\"}"}}]}}]}',
+					'',
+					'data: {"id":"c2","choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+					'',
+					'data: [DONE]',
+					'',
+				]),
+			}),
+		});
+		const chunks: StreamChunk[] = [];
+		for await (const c of model.stream([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }])) chunks.push(c);
+		expect(chunks).toEqual([
+			{ type: 'tool-call-delta', id: 'call_5', name: 'weather', argumentsDelta: '{"city":"Paris"}' },
+			{ type: 'finish', finishReason: 'tool-calls', usage: undefined },
+		]);
 	});
 
 	it('surfaces an error object in the stream', async () => {

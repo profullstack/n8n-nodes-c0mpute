@@ -50,9 +50,10 @@ describe('c0mpute Chat Model node', () => {
 		expect(typeof node.methods.loadOptions.getModels).toBe('function');
 	});
 
-	it('warns that tools are not invoked', () => {
+	it('names the tool-capable models for agents', () => {
 		const notice = d.properties.find((p) => p.type === 'notice');
-		expect(notice?.displayName).toMatch(/tool calling/i);
+		expect(notice?.displayName).toMatch(/tool-capable/i);
+		expect(notice?.displayName).toContain('qwen3:4b');
 	});
 });
 
