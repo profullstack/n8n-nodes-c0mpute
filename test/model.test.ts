@@ -12,10 +12,10 @@ function sse(lines: string[]): AsyncIterableIterator<Buffer> {
 }
 
 function makeModel(overrides: Partial<C0mputeRequests> = {}) {
-	const calls: Array<{ url: string; body: any }> = [];
+	const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
 	const requests: C0mputeRequests = {
 		httpRequest: async (_m, url, body) => {
-			calls.push({ url: String(url), body });
+			calls.push({ url: String(url), body: body as Record<string, unknown> });
 			return {
 				body: {
 					id: 'chatcmpl-1',
@@ -27,7 +27,7 @@ function makeModel(overrides: Partial<C0mputeRequests> = {}) {
 			};
 		},
 		openStream: async (_m, url, body) => {
-			calls.push({ url: String(url), body });
+			calls.push({ url: String(url), body: body as Record<string, unknown> });
 			return {
 				body: sse([
 					': status {"queue":1}',
@@ -121,9 +121,11 @@ describe('C0mputeChatModel.stream', () => {
 			openStream: async () => ({ body: sse(['data: {"error":{"message":"Network is busy"}}', '']) }),
 		});
 		const run = async () => {
-			for await (const _ of model.stream([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }])) {
-				// drain
+			const chunks: StreamChunk[] = [];
+			for await (const c of model.stream([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }])) {
+				chunks.push(c);
 			}
+			return chunks;
 		};
 		await expect(run()).rejects.toThrow(/Network is busy/);
 	});

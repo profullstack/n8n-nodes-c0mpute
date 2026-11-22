@@ -8,7 +8,9 @@ import { C0mputeChatModel } from '../nodes/LmChatC0mpute/model';
 import { C0mpute } from '../nodes/C0mpute/C0mpute.node';
 import { executeContext } from './helpers';
 
-const key = process.env.C0MPUTE_API_KEY;
+// Vitest exposes environment variables on import.meta.env.
+// @ts-expect-error import.meta.env is provided by Vitest
+const key = (import.meta.env as Record<string, string | undefined>).C0MPUTE_API_KEY;
 const base = 'https://c0mpute.com/v1';
 const live = key ? describe : describe.skip;
 
@@ -44,7 +46,6 @@ live('live c0mpute API', () => {
 			{ role: 'user', content: [{ type: 'text', text: 'What color is the sky on a clear day?' }] },
 		]);
 		const text = r.message.content.map((c) => (c.type === 'text' ? c.text : '')).join('');
-		console.log('generate ->', JSON.stringify(text.slice(0, 120)));
 		expect(text.length).toBeGreaterThan(0);
 	}, 180000);
 
@@ -57,7 +58,6 @@ live('live c0mpute API', () => {
 			if (c.type === 'text-delta') text += c.delta;
 			if (c.type === 'finish') finished = true;
 		}
-		console.log('stream ->', JSON.stringify(text.slice(0, 120)));
 		expect(text.length).toBeGreaterThan(0);
 		expect(finished).toBe(true);
 	}, 180000);
@@ -69,7 +69,6 @@ live('live c0mpute API', () => {
 			request: async (o: IHttpRequestOptions) => (await post(String(o.url), o.body)).json(),
 		});
 		const [out] = await new C0mpute().execute.call(ctx);
-		console.log('action ->', JSON.stringify(out[0].json).slice(0, 200));
 		expect(String(out[0].json.text).length).toBeGreaterThan(0);
 	}, 180000);
 });
