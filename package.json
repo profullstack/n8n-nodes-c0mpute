@@ -1,0 +1,68 @@
+{
+	"name": "n8n-nodes-c0mpute",
+	"version": "0.1.0",
+	"description": "n8n community nodes for c0mpute: a chat model for AI Agent and LLM chain workflows plus a chat completion action, on open-weight models from the c0mpute peer-to-peer network",
+	"license": "MIT",
+	"homepage": "https://github.com/profullstack/n8n-nodes-c0mpute#readme",
+	"keywords": [
+		"n8n-community-node-package",
+		"n8n",
+		"c0mpute",
+		"llm",
+		"chat-model",
+		"langchain",
+		"open-weight",
+		"decentralized",
+		"peer-to-peer",
+		"openai-compatible"
+	],
+	"author": {
+		"name": "Profullstack, Inc.",
+		"email": "anthony@profullstack.com",
+		"url": "https://profullstack.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/profullstack/n8n-nodes-c0mpute.git"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease",
+		"test": "vitest run"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"aiNodeSdkVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/C0mputeApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/C0mpute/C0mpute.node.js",
+			"dist/nodes/LmChatC0mpute/LmChatC0mpute.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "*",
+		"eslint": "9.32.0",
+		"prettier": "3.6.2",
+		"release-it": "^21.1.0",
+		"typescript": "5.9.2",
+		"vitest": "^3.2.7"
+	},
+	"peerDependencies": {
+		"@n8n/ai-node-sdk": "*",
+		"n8n-workflow": "*"
+	},
+	"bugs": {
+		"url": "https://github.com/profullstack/n8n-nodes-c0mpute/issues"
+	}
+}
